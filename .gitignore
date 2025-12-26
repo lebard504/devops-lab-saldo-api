@@ -1,0 +1,41 @@
+# Node dependencies
+app/node_modules/
+
+# Build output
+app/dist/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.*
+app/.env
+app/.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Coverage
+app/coverage/
+
+# Jest cache
+app/.jest/
+
+# Docker
+*.pid
+docker-data/
+
+# Temporary files
+tmp/
+temp/
