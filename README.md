@@ -89,7 +89,6 @@ devops-lab-saldo-api/
 │           └── balance-cert.yaml
 │
 ├── scripts/                 # Environment bootstrap
-│   ├── setup-minikube.sh
 │   ├── install-argocd.sh
 │   ├── install-kong.sh
 │   └── bootstrap.sh
@@ -108,6 +107,20 @@ For a fresh machine, the full environment (Minikube, Argo CD, Kong) can be boots
 chmod +x scripts/*.sh
 ./scripts/bootstrap.sh
 ```
+Before running the bootstrap script, create the Kubernetes secret used to pull images from GitHub Container Registry.
+
+> ⚠️ A GitHub Personal Access Token (PAT) with `read:packages` scope is required.  
+> The token will be provided separately.
+
+```
+kubectl create secret docker-registry ghcr-secret \
+  --docker-server=ghcr.io \
+  --docker-username=lebard504 \
+  --docker-password=<GHCR_TOKEN> \
+  --docker-email=lebard504@gmail.com \
+  -n balance
+```
+
 
 This will:
 * Start Minikube and enable addons

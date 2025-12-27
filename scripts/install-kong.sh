@@ -9,6 +9,7 @@ helm repo update
 
 helm upgrade --install kong kong/kong \
   -n kong \
-  -f k8s/kong/values.yaml
+  -f k8s/kong/values.yaml \
+  --set ingressController.installCRDs=false
 
 echo "✅ Kong installed"
