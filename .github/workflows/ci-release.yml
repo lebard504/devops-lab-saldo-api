@@ -22,12 +22,15 @@ jobs:
         with:
           node-version: 20
           cache: "npm"
+          cache-dependency-path: app/package-lock.json
 
       - name: Install dependencies
         run: npm ci
+        working-directory: app
 
       - name: Run tests
         run: npm test
+        working-directory: app
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -45,3 +48,4 @@ jobs:
           echo "Building $IMAGE"
           docker build -t $IMAGE .
           docker push $IMAGE
+        working-directory: app
