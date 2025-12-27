@@ -210,20 +210,268 @@ Git Tag Push (vX.Y.Z)
         ▼
 GitHub Actions CI Pipeline
         │
+        ├── Checkout code
         ├── Install dependencies
         ├── Run tests
         ├── Build Docker image
-        └── Push image to GHCR
+        ├── Push image to GHCR
+        ├── Update Kubernetes manifest with new tag
+        └── Commit & push manifest to repo
         │
         ▼
-Validated container image ready for deployment
+GitOps CD with Argo CD
+        │
+        ├── Detects change in k8s/ manifests
+        ├── Auto-sync enabled
+        └── Applies new image to cluster
+        │
+        ▼
+Kubernetes Deployment updated automatically
 ```
 
-**✅ Outcome**
-With this CI pipeline in place:
+### ✅ Outcome
+
+With this CI/CD pipeline in place:
 * Only tested code is released
-* Images are reproducible and traceable by version
-* The pipeline integrates seamlessly with the GitOps-based CD process using Argo CD
+* Images are versioned and traceable via Git tags
+* Kubernetes manifests are updated automatically by CI
+* Argo CD applies changes using GitOps principles
+* No manual kubectl apply needed for deployments
+
+---
+### **🚀 Local Setup Guide (Minikube + ArgoCD)**
+
+### 🧰 Prerequisites
+* Docker
+* kubectl
+* Minikube
+* Helm
+* Git
+
+**▶️ 1. Start Minikube**
+```
+minikube start
+```
+
+Enable metrics server (needed for HPA):
+```
+minikube addons enable metrics-server
+```
+
+**⚙️ 2. Install Argo CD with Helm**
+```
+kubectl create namespace argocd
+
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update
+
+helm install argocd argo/argo-cd -n argocd
+```
+
+Verify:
+```
+kubectl get all -n argocd
+```
+
+**🔐 3. Access Argo CD UI**
+
+Port-forward:
+```
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+```
+
+Get admin password:
+```
+kubectl get secret argocd-initial-admin-secret -n argocd \
+  -o jsonpath="{.data.password}" | base64 --decode && echo
+```
+
+Login at:
+👉 https://localhost:8080
+User: admin
+
+[Image 2]
+
+**📦 4. Create namespace for app**
+```
+kubectl create namespace balance
+```
+
+**🔑 5. Create GHCR image pull secret**
+⚠️ In real scenarios, never commit tokens. Use GitHub secrets or PAT with read:packages.
+```
+kubectl create secret docker-registry ghcr-secret \
+  --docker-server=ghcr.io \
+  --docker-username=lebard504 \
+  --docker-password={GHCR_TOKEN} \
+  --docker-email=lebard504@gmail.com \
+  -n balance
+```
+
+Verify:
+```
+kubectl get secret ghcr-secret -n balance
+```
+Inspect (optional):
+```
+kubectl get secret ghcr-secret -n balance -o yaml
+
+kubectl get secret ghcr-secret -n balance \
+  -o jsonpath='{.data.\.dockerconfigjson}' | base64 --decode
+```
+
+**📄 6. Register ArgoCD Application**
+Apply:
+```
+kubectl apply -f argocd/application.yaml
+```
+
+This Application:
+* Watches k8s/ folder
+* Auto-sync enabled
+* Self-heal enabled
+
+Verify in UI → Application should appear as **Synced & Healthy**.
+[image 3]
+
+**🌐 7. Access the API locally**
+```
+kubectl port-forward svc/balance-api -n balance 9090:80
+```
+
+Test:
+```
+curl --location 'http://localhost:9090/balance'
+```
+
+**📈 8. Validate HPA & Metrics**
+```
+kubectl get hpa -n balance
+kubectl describe hpa balance-api-hpa -n balance
+
+kubectl top pods -n balance
+```
+
+**🔥 9. Generate Load to Trigger Autoscaling**
+```
+kubectl run -it --rm loadgen --image=busybox -n balance -- sh
+```
+Inside pod:
+```
+while true; do wget -q -O- http://balance-api.balance.svc.cluster.local; done
+```
+Watch scaling:
+```
+kubectl get hpa -n balance -w
+kubectl get pods -n balance -w
+```
+
+[Image 4]
+
+**🔄 10. Manual scale test (optional)**
+```
+kubectl scale deploy balance-api -n balance --replicas=2
+```
+
+**🏷️ 11. Release a New Version (CI/CD Test)**
+Example:
+```
+git tag v0.1.4
+git push origin v0.1.4
+```
+
+This will:
+* Trigger GitHub Actions
+* Build & push image to GHCR
+* Update k8s/deployment.yaml
+* Commit change
+* ArgoCD auto-syncs
+* New pods roll out automatically
+
+Verify:
+```
+kubectl get deploy balance-api -n balance \
+  -o jsonpath='{.spec.template.spec.containers[0].image}'
+```
+
+
+### 🏗️ Infrastructure as Code (IaC) – k8s/ Folder
+
+This repository follows an **Infrastructure as Code** approach: the full Kubernetes runtime configuration for the API is defined as declarative YAML inside k8s/.
+**Git is the single source of truth** for the desired cluster state, and **Argo CD continuously reconciles** the cluster against these manifests.
+
+### 📁 k8s/ contents
+
+**1) namespace.yaml**
+Creates the namespace where the workload runs.
+* **Namespace**: balance
+* Reason: isolates app resources from argocd and other workloads.
+
+**2) deployment.yaml**
+Defines how the API is executed inside the cluster.
+* Deploys **2 replicas** by default (can be controlled by HPA)
+* Uses imagePullSecrets: ghcr-secret to pull from GHCR
+* Container exposes containerPort: 10000
+* Resource requests/limits are defined to support predictable scheduling and autoscaling
+
+Key point:
+* The **image tag is pinned** (e.g., ghcr.io/lebard504/devops-lab-saldo-api:v0.1.3) to ensure reproducible deployments.
+* CI can update this tag automatically by committing changes back into k8s/deployment.yaml.
+
+**3) service.yaml**
+Exposes the Deployment internally using a stable DNS name.
+* Type: ClusterIP
+* Port: 80
+* Target: container 10000
+
+This enables:
+* In-cluster access via:
+http://balance-api.balance.svc.cluster.local
+* Local testing via:
+  kubectl port-forward svc/balance-api -n balance 9090:80
+
+**4) hpa.yaml**
+Adds autoscaling based on CPU utilization.
+* Scales the Deployment when CPU crosses the target threshold
+* Example configuration:
+* minReplicas: 2
+* maxReplicas: 5
+* targetCPUUtilizationPercentage: 70 *(or 50% if required by the challenge)*
+
+Note: HPA requires the **metrics-server** addon enabled in Minikube.
+
+**5) ingress.yaml (NOT YET)**
+
+### 🔁 GitOps Reconciliation with Argo CD
+
+Argo CD is configured to watch the k8s/ folder and continuously reconcile it into the cluster.
+* **Observed path**: k8s/
+* **Sync policy**: automated
+* **Self-heal**: enabled
+* **Prune**: enabled (removes resources deleted from Git)
+
+The Argo CD Application manifest is stored at:
+* argocd/application.yaml
+
+It points to:
+* repoURL: https://github.com/lebard504/devops-lab-saldo-api.git
+* targetRevision: main
+* path: k8s
+
+This ensures:
+* Any change committed into k8s/ becomes the new desired state
+* Argo CD applies it automatically without manual kubectl apply
+
+### ✅ Benefits of this approach
+* Full environment defined as code
+* Reproducible and auditable deployments
+* Git is the source of truth
+* Automatic reconciliation via Argo CD
+* Clear separation between CI (build) and CD (deploy)
+
+
+
+
 
 ---
 ### 🛡️ Why Chainguard instead of Alpine?
@@ -257,8 +505,8 @@ Each step will be committed incrementally to show the full DevOps lifecycle.
 ✅ Tests, lint, nodemon
 ✅ Dockerized API
 ✅ CI pipeline
-⬜ Kubernetes manifests
-⬜ ArgoCD integration
+✅Kubernetes manifests
+✅ ArgoCD integration
 ⬜ Kong Gateway setup
 
 ---
