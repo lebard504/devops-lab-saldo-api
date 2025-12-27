@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: balance-api
+  namespace: balance
+spec:
+  selector:
+    app: balance-api
+  ports:
+    - port: 80
+      targetPort: 10000
+  type: ClusterIP

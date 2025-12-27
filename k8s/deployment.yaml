@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: balance-api
+  namespace: balance
+  labels:
+    app: balance-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: balance-api
+  template:
+    metadata:
+      labels:
+        app: balance-api
+    spec:
+      containers:
+        - name: balance-api
+          image: ghcr.io/lebard504/devops-lab-balance-api:v0.1.1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 10000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
