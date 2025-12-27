@@ -1,11 +1,10 @@
 # **📘 Balance API – DevOps Kubernetes Lab**
 
-Simple TypeScript microservice used as a reference workload for a DevOps technical challenge.  
+Simple TypeScript service used as a reference workload for a DevOps technical challenge.  
 This repository demonstrates a full CI/CD and GitOps workflow using Docker, Kubernetes, ArgoCD and Kong Gateway.
 
 ---
-
-**🚀 Overview**
+## **🚀 Overview**
 
 This project showcases an end-to-end DevOps flow:
 
@@ -17,11 +16,10 @@ This project showcases an end-to-end DevOps flow:
 - Expose and control traffic via Kong API Gateway
 
 The API itself is intentionally simple.  
-The main goal is to demonstrate ****automation, infrastructure as code, and delivery flow**** from commit to production.
+The main goal is to demonstrate **automation, infrastructure as code, and delivery flow** from commit to production.
 
 ---
-
-**🧱 Tech Stack**
+## **🧱 Tech Stack**
 
 - Node.js
 - TypeScript
@@ -35,8 +33,7 @@ The main goal is to demonstrate ****automation, infrastructure as code, and deli
 - Kong Gateway (API Gateway)
 
 ---
-
-**🏗️ High Level Architecture**
+## **🏗️ High Level Architecture**
 Developer → GitHub → CI → Container Registry → ArgoCD → Kubernetes → Kong → Client
 
 Flow description:
@@ -51,19 +48,116 @@ Flow description:
 ---
 
 **📂 Project Structure**
+```
+devops-lab-saldo-api/
+├── .github/			     # CI Configuration
+│   └── workflows/
+│       └── ci-release.yml
+│
+├── app/                     # TypeScript API
+│   ├── src/
+│   │   ├── controllers/
+│   │   ├── errors/
+│   │   ├── middlewares/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   ├── types/
+│   │   ├── utils/
+│   │   ├── app.ts
+│   │   └── server.ts
+│   ├── __tests__/
+│   ├── dist/
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── .env.example
+│
+├── argocd/
+│   └── application.yaml
+│
+├── k8s/                     # Application IaC
+│   ├── namespace.yaml
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   ├── hpa.yaml
+│   ├── ingress.yaml
+│   ├── rate-limit.yaml
+│   └── kong/
+│       ├── values.yaml      # Kong Helm values
+│       └── tls/
+│           ├── cluster-issuer.yaml
+│           └── balance-cert.yaml
+│
+├── scripts/                 # Environment bootstrap
+│   ├── setup-minikube.sh
+│   ├── install-argocd.sh
+│   ├── install-kong.sh
+│   └── bootstrap.sh
+│
+├── .gitignore
+└── README.md
+```
 
 ---
+## ⚡ **Quick Start** 
 
-**🔌 Configuration & API**
+### ✅ Quick Start — One Command Setup
 
-**⚙️ Environment Variables**
-Create a .env file based on .env.example:
+For a fresh machine, the full environment (Minikube, Argo CD, Kong) can be bootstrapped automatically using the provided scripts:
 ```
-PORT=10000
+chmod +x scripts/*.sh
+./scripts/bootstrap.sh
 ```
-⚠️ Do not commit real .env files. Secrets must be managed via CI/CD and Kubernetes.
 
-**▶️ Run Locally (Development)**
+This will:
+* Start Minikube and enable addons
+* Install Argo CD via Helm
+* Install Kong Gateway via Helm
+* Prepare base namespaces
+* Leave Argo CD ready to sync manifests from Git
+
+After completion, you can access:
+* Argo CD UI → https://localhost:8080
+* API via Kong → minikube service kong-kong-proxy -n kong
+
+This will open a local tunnel and output a URL like:
+```
+[kong kong-kong-proxy  http://127.0.0.1:58065
+http://127.0.0.1:58066]
+```
+
+Then access the API using:
+```
+curl -k -H "Host: balance.local" https://127.0.0.1:58066/balance
+
+The Host header is required because Kong routes traffic based on the Ingress host rule.
+```
+
+```
+> ⚠️ Note: On Linux with VM-based drivers, it may be possible to access NodePorts
+> directly via `<minikube-ip>:32443`, but this does not work with the Docker driver on macOS.
+```
+
+![](docs/images/image1.png)
+
+> ℹ️ **Kong Proxy URLs**
+> 
+> - The **first URL** corresponds to **HTTP** access (port 58065).
+> - The **second URL** corresponds to **HTTPS** access with TLS enabled (port 58066).
+> 
+> Use the second one to test secure access to the API through Kong.
+
+![](docs/images/image2.png)
+✔️ Recommended for reviewers who want a fast setup.
+
+## **🔌 Detailed Manual Sections** 
+
+```
+> ⚠️ The following steps describe the process in detail for learning purposes.  
+> For a quick setup, prefer using `./scripts/bootstrap.sh`.
+```
+
+**▶️ Run API Locally (Development)**
 From the root:
 ```
 cd app
@@ -72,7 +166,7 @@ npm run dev
 ```
 
 **Endpoint**
-API will be available at:
+API will be available at port 10000 by default:
 ```
 http://localhost:10000/balance
 ```
@@ -100,7 +194,7 @@ npm run lint
 ```
 
 ---
-### 🐳 Docker
+## 🐳 Docker
 
 The API is containerized using a **multi-stage Docker build** following container security and optimization best practices.
 
@@ -124,7 +218,7 @@ The API is containerized using a **multi-stage Docker build** following containe
 - **Optimized image size**  
   The compressed image pushed to the registry is ~55MB, keeping network and storage usage efficient.
 
-[image 1]
+![](docs/images/image3.png)
 ---
 ### 📦 Build image
 From the repository root:
@@ -196,7 +290,7 @@ ghcr.io/lebard504/devops-lab-saldo-api:v0.1.1
 * The registry is integrated natively with GitHub
 * Authentication is handled using the built-in GITHUB_TOKEN
 * No additional secrets are required
-* mages are public for easy consumption in Kubernetes
+* Images are public for easy consumption in Kubernetes
 
 You can view published images at:
 ```
@@ -239,7 +333,7 @@ With this CI/CD pipeline in place:
 * No manual kubectl apply needed for deployments
 
 ---
-### **🚀 Local Setup Guide (Minikube + ArgoCD)**
+## **🚀 Manual Local Setup Guide (Minikube + ArgoCD)**
 
 ### 🧰 Prerequisites
 * Docker
@@ -290,7 +384,7 @@ Login at:
 👉 https://localhost:8080
 User: admin
 
-[Image 2]
+![](docs/images/image4.png)
 
 **📦 4. Create namespace for app**
 ```
@@ -303,7 +397,7 @@ kubectl create namespace balance
 kubectl create secret docker-registry ghcr-secret \
   --docker-server=ghcr.io \
   --docker-username=lebard504 \
-  --docker-password=<GHCR_TOKEN> \
+  --docker-password={GHCR_TOKEN} \
   --docker-email=lebard504@gmail.com \
   -n balance
 ```
@@ -332,7 +426,8 @@ This Application:
 * Self-heal enabled
 
 Verify in UI → Application should appear as **Synced & Healthy**.
-[image 3]
+![](docs/images/image5.png)
+![](docs/images/image6.png)
 
 **🌐 7. Access the API locally**
 ```
@@ -366,7 +461,10 @@ kubectl get hpa -n balance -w
 kubectl get pods -n balance -w
 ```
 
-[Image 4]
+![](docs/images/image7.png)
+
+![](docs/images/image8.png)
+![](docs/images/image9.png)
 
 **🔄 10. Manual scale test (optional)**
 ```
@@ -379,6 +477,9 @@ Example:
 git tag v0.1.4
 git push origin v0.1.4
 ```
+
+![](docs/images/image10.png)
+![](docs/images/image11.png)
 
 This will:
 * Trigger GitHub Actions
@@ -394,8 +495,130 @@ kubectl get deploy balance-api -n balance \
   -o jsonpath='{.spec.template.spec.containers[0].image}'
 ```
 
+---
+## **🚪 Kong API Gateway & Ingress Controller**
 
-### 🏗️ Infrastructure as Code (IaC) – k8s/ Folder
+In this phase, **Kong Gateway** is introduced as the **Ingress Controller and API Gateway** for the balance-api service.
+Kong is responsible for:
+	🌐 Exposing the API via HTTPS
+	🚦 Applying rate limiting at the gateway level
+	🔌 Acting as the single entry point to the cluster
+
+Kong is installed and managed using **Helm**.
+
+### 📦 Install Kong with Helm
+
+Add the Kong Helm repository and install it into the kong namespace:
+```
+helm repo add kong https://charts.konghq.com
+helm repo update
+
+kubectl create namespace kong
+
+helm install kong kong/kong \
+  -n kong \
+  -f k8s/kong/values.yaml
+```
+
+The values.yaml file configures:
+* Kong as Ingress Controller
+* Proxy service exposure (HTTP/HTTPS)
+* TLS support
+* Minimal footprint for local lab usage
+
+**🔍 Verify Kong Installation**
+```
+kubectl get pods -n kong
+kubectl get svc -n kong
+```
+
+🔐 HTTPS Exposure
+
+The Ingress is configured with TLS:
+```
+tls:
+  - hosts:
+      - balance.local
+    secretName: balance-tls
+```
+This enables HTTPS termination at Kong using the balance-tls certificate secret.
+
+⚠️ cert-manager is required for TLS:
+```
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager --create-namespace \
+  --set installCRDs=true
+```
+### ⚙️ Apply Gateway Manifests
+
+Once Kong is running, apply the gateway-related manifests:
+```
+kubectl apply -f k8s/rate-limit.yaml
+kubectl apply -f k8s/ingress.yaml
+```
+
+These resources define:
+* A KongPlugin for rate limiting
+* An Ingress resource that routes traffic to balance-api
+
+**🔎 Verify Gateway Resources**
+```
+kubectl get ingress -n balance
+kubectl get kongplugin -n balance
+```
+Inspect the Ingress:
+```
+kubectl describe ingress balance-api-ingress -n balance
+```
+
+**🌍 Expose Kong Locally (Minikube)**
+```
+minikube service kong-kong-proxy -n kong
+```
+This will output URLs like:
+```
+http://127.0.0.1:<PORT>
+https://127.0.0.1:<PORT>
+```
+⚠️ On macOS with Docker driver, the terminal must remain open to keep the tunnel alive.
+
+**🧪 Test the API Through Kong**
+Using the URL provided by Minikube (example):
+```
+http://127.0.0.1:<PORT>
+```
+Send requests with the proper Host header:
+```
+for i in {1..10}; do
+  curl -i -H "Host: balance.local" http://127.0.0.1:<PORT>/balance
+done
+```
+After exceeding the configured threshold, Kong will respond with:
+```
+HTTP/1.1 429 Too Many Requests
+```
+
+![](docs/images/image12.png)
+This confirms that **rate limiting is enforced at the gateway level**.
+
+### 🧩 Gateway Manifests Involved
+* k8s/kong/values.yaml → Kong Helm configuration
+* k8s/ingress.yaml → Ingress with Kong class and TLS
+* k8s/rate-limit.yaml → Kong rate limiting plugin
+
+### ✅ Outcome
+
+With Kong in place:
+✔️ API is exposed through a single gateway
+✔️ HTTPS is enabled at the edge
+✔️ Rate limiting protects the backend service
+✔️ Kong is managed via Helm
+✔️ Fully integrated with Kubernetes & GitOps
+
+---
+## 🏗️ Infrastructure as Code (IaC) – k8s/ Folder
 
 This repository follows an **Infrastructure as Code** approach: the full Kubernetes runtime configuration for the API is defined as declarative YAML inside k8s/.
 **Git is the single source of truth** for the desired cluster state, and **Argo CD continuously reconciles** the cluster against these manifests.
@@ -415,7 +638,7 @@ Defines how the API is executed inside the cluster.
 * Resource requests/limits are defined to support predictable scheduling and autoscaling
 
 Key point:
-* The **image tag is pinned** (e.g., ghcr.io/lebard504/devops-lab-saldo-api:v0.1.3) to ensure reproducible deployments.
+* The **image tag is pinned** (e.g., ghcr.io/lebard504/devops-lab-saldo-api:vx.x.x) to ensure reproducible deployments.
 * CI can update this tag automatically by committing changes back into k8s/deployment.yaml.
 
 **3) service.yaml**
@@ -440,8 +663,150 @@ Adds autoscaling based on CPU utilization.
 
 Note: HPA requires the **metrics-server** addon enabled in Minikube.
 
-**5) ingress.yaml (NOT YET)**
+**5) ingress.yaml**
+Defines external access to the API through Kong.
+* Uses ingressClassName: kong
+* Routes host balance.local and path /balance to the balance-api service
+* Enables TLS termination at the gateway
 
+This allows clients to reach the API via Kong instead of directly to the Service.
+
+**6) rate-limit.yaml**
+Defines a KongPlugin to apply rate limiting at the gateway level.
+* Example policy: limit requests per minute
+* Protects backend pods from abuse
+* Enforced before traffic reaches the service
+
+This demonstrates **API traffic control at the edge**.
+
+**7) kong/values.yaml**
+Helm configuration used to install and customize **Kong Gateway** itself.
+This file is part of the IaC because it defines how the gateway runs in Kubernetes.
+
+Main responsibilities:
+* Enables Kong as **Ingress Controller**
+* Runs Kong in **DB-less mode**
+* Exposes HTTP/HTTPS via **NodePort**
+* Disables admin/manager interfaces for security
+
+Key sections:
+* **Runtime (DB-less)**
+```
+env:
+  database: "off"
+  nginx_worker_processes: "1"
+  proxy_listen: "0.0.0.0:8000, 0.0.0.0:8443 ssl http2"
+```
+* **Ingress Controller**
+```
+ingressController:
+  enabled: true
+  installCRDs: true
+```
+* **Proxy exposure**
+```
+proxy:
+  enabled: true
+  type: NodePort
+  http:
+    enabled: true
+    servicePort: 8000
+    nodePort: 32080
+  tls:
+    enabled: true
+    servicePort: 8443
+    nodePort: 32443
+```
+* **Hardened setup**
+```
+admin:
+  enabled: false
+
+manager:
+  enabled: false
+```
+
+This ensures:
+* Kong is fully managed via Kubernetes CRDs and GitOps
+* HTTPS is available at the gateway
+* Minimal and secure footprint for the lab
+
+**Explanation:**
+* Exposes Kong outside the cluster using **NodePort** (ideal for Minikube).
+* Ports:
+* 32080 → HTTP
+* 32443 → HTTPS
+* Internally maps to Kong ports 8000 and 8443.
+
+This allows access like:
+```
+http://<minikube-ip>:32080
+https://<minikube-ip>:32443
+```
+
+**8) kong/tls/**
+Defines the TLS infrastructure used by Kong to terminate HTTPS traffic for the API using **cert-manager**.
+
+This folder contains two manifests:
+**1. cluster-issuer.yaml**
+Defines a ClusterIssuer that issues self-signed certificates for the lab environment:
+```
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+```
+
+Purpose:
+* Acts as the certificate authority for the cluster
+* Allows cert-manager to generate certificates without external dependencies (ideal for local Minikube labs)
+
+**2. balance-cert.yaml**
+Requests a TLS certificate for the domain balance.local and stores it as a Kubernetes Secret:
+```
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: balance-cert
+  namespace: balance
+spec:
+  secretName: balance-tls
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - balance.local
+```
+Purpose:
+* Creates the balance-tls Secret in the balance namespace
+* This Secret contains the generated certificate and private key
+* It is referenced by ingress.yaml for HTTPS termination in Kong
+
+Relationship with **Ingress**:
+In k8s/ingress.yaml:
+```
+tls:
+  - hosts:
+      - balance.local
+    secretName: balance-tls
+```
+
+This tells Kong to:
+* Use the certificate stored in balance-tls
+* Terminate HTTPS at the gateway for balance.local
+
+Result:
+✔️ TLS is managed declaratively
+✔️ Certificates are auto-generated by cert-manager
+✔️ Kong terminates HTTPS using Kubernetes Secrets
+✔️ No manual cert creation required
+
+> 🔐 Note: Self-signed certificates are used for lab purposes only.  
+> In production, this should be replaced with a trusted issuer (e.g., Let's Encrypt).
+
+---
 ### 🔁 GitOps Reconciliation with Argo CD
 
 Argo CD is configured to watch the k8s/ folder and continuously reconcile it into the cluster.
@@ -469,10 +834,6 @@ This ensures:
 * Automatic reconciliation via Argo CD
 * Clear separation between CI (build) and CD (deploy)
 
-
-
-
-
 ---
 ### 🛡️ Why Chainguard instead of Alpine?
 
@@ -488,12 +849,12 @@ This prioritizes **security and supply-chain integrity** over raw image size, al
 ### 🎯 Goal of This Lab
 
 This repository will be extended to include:
-	* 	CI pipeline (GitHub Actions)
-	* 	Image publishing to registry
-	* 	Kubernetes manifests
-	* 	ArgoCD Application definition
-	* 	Kong Ingress configuration
-	* 	Rate limiting and security controls
+* CI pipeline (GitHub Actions)
+* Image publishing to registry
+* Kubernetes manifests
+* ArgoCD Application definition
+* Kong Ingress configuration
+* Rate limiting and security controls
 
 Each step will be committed incrementally to show the full DevOps lifecycle.
 
@@ -507,7 +868,7 @@ Each step will be committed incrementally to show the full DevOps lifecycle.
 ✅ CI pipeline
 ✅Kubernetes manifests
 ✅ ArgoCD integration
-⬜ Kong Gateway setup
+✅ Kong Gateway setup
 
 ---
 **👤 Author**

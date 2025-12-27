@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: balance-api-ingress
+  namespace: balance
+  annotations:
+    konghq.com/plugins: balance-rate-limit
+spec:
+  ingressClassName: kong
+  tls:
+    - hosts:
+        - balance.local
+      secretName: balance-tls
+  rules:
+    - host: balance.local
+      http:
+        paths:
+          - path: /balance
+            pathType: Prefix
+            backend:
+              service:
+                name: balance-api
+                port:
+                  number: 80
