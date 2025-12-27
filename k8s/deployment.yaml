@@ -15,6 +15,8 @@ spec:
       labels:
         app: balance-api
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret 
       containers:
         - name: balance-api
           image: ghcr.io/lebard504/devops-lab-balance-api:v0.1.1
