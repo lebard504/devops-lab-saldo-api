@@ -54,7 +54,7 @@ Flow description:
 
 ---
 
-**🔌 API**
+**🔌 Configuration & API**
 
 **⚙️ Environment Variables**
 Create a .env file based on .env.example:
@@ -89,13 +89,11 @@ Example response
 }
 ```
 
----
 **🧪 Run Tests**
 ```
 npm test
 ```
 
----
 **🧹 Run Lint**
 ```
 npm run lint
@@ -114,7 +112,7 @@ The API is containerized using a **multi-stage Docker build** following containe
 - **Single-file bundle**  
   The TypeScript app is bundled into a single `bundle.js` using `esbuild`, reducing runtime dependencies and attack surface.
 
-**Minimal runtime image (Chainguard)**  
+- **Minimal runtime image (Chainguard)**  
   Uses `cgr.dev/chainguard/node` as a hardened runtime focused on security: no shell, no package manager, reduced OS surface, fewer CVEs, SBOM included, signed images, non-root by default.
 
 - **Non-root execution**  
@@ -150,6 +148,83 @@ Compressed size (as pushed to a registry):
 ```
 docker save balance-api:local | gzip | wc -c
 ```
+
+---
+## 🔁 Continuous Integration (CI)
+
+This project implements a complete **CI pipeline using GitHub Actions**. The pipeline is responsible for validating the code, running automated tests, building the Docker image using a multi-stage Dockerfile, and publishing it to **GitHub Container Registry (GHCR)**.
+
+### 🎯 CI Objectives
+
+The CI pipeline ensures that:
+
+- ✅ Dependencies are installed
+- 🧪 Automated tests are executed
+- 🐳 The Docker image is built using a multi-stage build (Chainguard base images)
+- 📦 The image is pushed to GitHub Container Registry
+- 🏷️ Images are versioned using Git tags (semantic versioning)
+
+This guarantees that only tested and validated images are released.
+### ⚙️ Trigger Strategy
+
+The pipeline is triggered **only when a Git tag is pushed** that matches the pattern:
+```
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+### 🗂️ Workflow Location
+
+GitHub automatically detects workflows located at:
+```
+.github/workflows/ci-release.yml
+```
+
+### 🐳 Docker Image Versioning
+
+Each image is tagged automatically using the Git tag that triggered the pipeline:
+```
+ghcr.io/<github-username>/<repository>:<git-tag>
+```
+Example:
+```
+ghcr.io/lebard504/devops-lab-saldo-api:v0.1.1
+```
+
+### 📦 GitHub Container Registry (GHCR)
+* Images are published to **GitHub Container Registry**
+* The registry is integrated natively with GitHub
+* Authentication is handled using the built-in GITHUB_TOKEN
+* No additional secrets are required
+* mages are public for easy consumption in Kubernetes
+
+You can view published images at:
+```
+https://github.com/lebard504/devops-lab-saldo-api/pkgs/container/devops-lab-saldo-api
+```
+
+**🔄 CI Flow Summary**
+```
+Git Tag Push (vX.Y.Z)
+        │
+        ▼
+GitHub Actions CI Pipeline
+        │
+        ├── Install dependencies
+        ├── Run tests
+        ├── Build Docker image
+        └── Push image to GHCR
+        │
+        ▼
+Validated container image ready for deployment
+```
+
+**✅ Outcome**
+With this CI pipeline in place:
+* Only tested code is released
+* Images are reproducible and traceable by version
+* The pipeline integrates seamlessly with the GitOps-based CD process using Argo CD
+
 ---
 ### 🛡️ Why Chainguard instead of Alpine?
 
@@ -181,7 +256,7 @@ Each step will be committed incrementally to show the full DevOps lifecycle.
 ✅ TypeScript setup
 ✅ Tests, lint, nodemon
 ✅ Dockerized API
-⬜ CI pipeline
+✅ CI pipeline
 ⬜ Kubernetes manifests
 ⬜ ArgoCD integration
 ⬜ Kong Gateway setup
@@ -189,7 +264,3 @@ Each step will be committed incrementally to show the full DevOps lifecycle.
 ---
 **👤 Author**
 DevOps Lab by Edwin Rafael Sánchez Ruiz
-
-
-
-
