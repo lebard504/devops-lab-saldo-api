@@ -303,7 +303,7 @@ kubectl create namespace balance
 kubectl create secret docker-registry ghcr-secret \
   --docker-server=ghcr.io \
   --docker-username=lebard504 \
-  --docker-password={GHCR_TOKEN} \
+  --docker-password=<GHCR_TOKEN> \
   --docker-email=lebard504@gmail.com \
   -n balance
 ```
